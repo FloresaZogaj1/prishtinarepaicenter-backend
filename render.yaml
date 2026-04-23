@@ -1,0 +1,18 @@
+# Render service manifest
+services:
+  - type: web
+    name: prishtina-repair-backend
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    envVars:
+      - key: MONGO_URI
+        value: ""
+      - key: JWT_SECRET
+        value: ""
+      - key: FRONTEND_URL
+        value: ""
+      - key: COOKIE_DOMAIN
+        value: ""

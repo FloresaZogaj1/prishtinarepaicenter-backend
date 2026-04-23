@@ -35,6 +35,9 @@ app.use(express.json());
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
+// Serve uploaded media files (public/uploads)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
+
 // Connect to MongoDB using a single URI (no fallback/retry).
 // Returns the actual URI used (string) on success, or throws on failure.
 function maskMongoUri(uri) {
@@ -76,9 +79,17 @@ const offerRoutes = require('./routes/offers');
 const contentRoutes = require('./routes/content');
 const settingsRoutes = require('./routes/settings');
 const mediaRoutes = require('./routes/media');
+const siteContentRoutes = require('./routes/siteContent');
+const bannerRoutes = require('./routes/banners');
 const testimonialRoutes = require('./routes/testimonials');
 const blogRoutes = require('./routes/blog');
 const teamRoutes = require('./routes/team');
+const pagesHomeRoute = require('./routes/pages/home');
+const pagesAboutRoute = require('./routes/pages/about');
+const pagesServicesRoute = require('./routes/pages/services');
+const pagesDiagnostikeRoute = require('./routes/pages/diagnostikeKompjuterike');
+const pagesPunetTonaRoute = require('./routes/pages/punetTona');
+const pagesContactRoute = require('./routes/pages/contact');
 const bookingRoutes = require('./routes/bookings');
 const adminBookingRoutes = require('./routes/admin/bookings');
 
@@ -94,6 +105,14 @@ app.use('/api/offers', offerRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/site-content', siteContentRoutes);
+app.use('/api/banners', bannerRoutes);
+app.use('/api/pages/home', pagesHomeRoute);
+app.use('/api/pages/about', pagesAboutRoute);
+app.use('/api/pages/services', pagesServicesRoute);
+app.use('/api/pages/DiagnostikeKompjuterike', pagesDiagnostikeRoute);
+app.use('/api/pages/punetTona', pagesPunetTonaRoute);
+app.use('/api/pages/contact', pagesContactRoute);
 app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/team', teamRoutes);
@@ -104,7 +123,7 @@ app.use('/api/admin/bookings', adminBookingRoutes);
 const errorHandler = require('./middleware/errorHandler');
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5511; // temporarily use 5511 as default for diagnostics/test
 // Start server only after DB connection is established.
 if (require.main === module) {
   (async () => {
@@ -118,10 +137,71 @@ if (require.main === module) {
       }
       // Log masked URI at startup for visibility
       console.log('MongoDB URI in use:', maskMongoUri(result.uri));
-      app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+      // Try to bind to 127.0.0.1 explicitly so local IPv4 requests (127.0.0.1) reliably connect.
+      // If that doesn't produce a reachable listener, fall back to binding to 0.0.0.0.
+  // Bind to 0.0.0.0 so the server accepts connections on all interfaces (avoids localhost-only restrictions)
+  const server = app.listen(PORT, '0.0.0.0');
+      server.on('listening', () => {
+        try {
+          const addr = server.address();
+          console.log(`Server started on ${addr.address}:${addr.port}`);
+        } catch (e) {
+          console.log(`Server started on port ${PORT}`);
+        }
+      });
+      server.on('error', (err) => {
+        console.error('Server listen error on 127.0.0.1:', err && err.message ? err.message : err);
+        // If binding to 0.0.0.0 failed (unlikely), try a simple listen without explicit host
+        try {
+          const fb = app.listen(PORT, () => {
+            const a = fb.address();
+            console.log(`Server started on ${a.address}:${a.port} (fallback)`);
+          });
+          fb.on('error', (e) => console.error('Fallback listen error:', e && e.message ? e.message : e));
+        } catch (e) {
+          console.error('Fallback listen exception:', e && e.message ? e.message : e);
+        }
+      });
+      // Diagnostic: if we reach here and no listener is reachable, try a different port to see if binds behave differently.
+      const diagPort = process.env.DIAG_PORT || 5512;
+      setTimeout(() => {
+        const diagServer = app.listen(diagPort, '127.0.0.1');
+        diagServer.on('listening', () => {
+          try { const addr = diagServer.address(); console.log(`Diagnostic listener started on ${addr.address}:${addr.port}`); } catch (e) { console.log(`Diagnostic listener started on port ${diagPort}`); }
+          diagServer.close();
+        });
+        diagServer.on('error', (e) => console.error('Diagnostic listen error:', e && e.message ? e.message : e));
+      }, 1000);
     } catch (err) {
-      console.error('Failed to establish MongoDB connection. Server will not start.');
+      console.error('Failed to establish MongoDB connection.');
       console.error(err && err.message ? err.message : err);
+      // In development mode, try to start an in-memory MongoDB so the server can run for local dev/test
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          console.log('Attempting to start an in-memory MongoDB for development (mongodb-memory-server)...');
+          // require here to avoid adding it to production bundles accidentally
+          const { MongoMemoryServer } = require('mongodb-memory-server');
+          const mongod = await MongoMemoryServer.create();
+          const memUri = mongod.getUri();
+          console.log('In-memory MongoDB URI:', memUri);
+          await mongoose.connect(memUri, { useNewUrlParser: true, useUnifiedTopology: true });
+          console.log('Connected to in-memory MongoDB (development fallback)');
+          // Start server
+          app.listen(PORT, () => console.log(`Server started on port ${PORT} (with in-memory MongoDB)`));
+          // Ensure the in-memory server is stopped on process exit
+          const stopHandler = async () => {
+            try { await mongod.stop(); } catch (e) { /* ignore */ }
+            process.exit(0);
+          };
+          process.on('SIGINT', stopHandler);
+          process.on('SIGTERM', stopHandler);
+          process.on('exit', stopHandler);
+          return;
+        } catch (memErr) {
+          console.error('Failed to start in-memory MongoDB fallback:', memErr && memErr.message ? memErr.message : memErr);
+        }
+      }
+      console.error('Server will not start. Set a reachable MongoDB URI or enable development fallback.');
       process.exit(1);
     }
   })();

@@ -1,0 +1,33 @@
+﻿{
+    "hero":  {
+                 "bullets":  [
+
+                             ],
+                 "kicker":  "tre"
+             },
+    "process":  {
+                    "step1":  {
+                                  "title":  "Step 1 Title 1776357129903",
+                                  "description":  "Step 1 Desc 1776357129903"
+                              },
+                    "step2":  {
+                                  "title":  "Step 2 Title 1776357129903",
+                                  "description":  "Step 2 Desc 1776357129903"
+                              },
+                    "step3":  {
+                                  "title":  "Step 3 Title 1776357129903",
+                                  "description":  "Step 3 Desc 1776357129903"
+                              },
+                    "step4":  {
+                                  "title":  "Step 4 Title 1776357129903",
+                                  "description":  "Step 4 Desc 1776357129903"
+                              },
+                    "kicker":  "SMOKE PROCESS KICKER 1776357129903",
+                    "title":  "SMOKE PROCESS TITLE 1776357129903",
+                    "intro":  "Smoke intro text 1776357129903"
+                },
+    "_id":  "69ddeccc05e2294d461fb6d2",
+    "footerText":  "© 2026 Prishtina Repair Center",
+    "updatedAt":  "2026-04-16T16:47:28.592Z",
+    "__v":  0
+}
