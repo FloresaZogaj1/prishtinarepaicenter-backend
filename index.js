@@ -10,25 +10,54 @@ console.debug('env MONGO_URI present:', !!process.env.MONGO_URI);
 console.debug('env LOCAL_MONGO_URI present:', !!process.env.LOCAL_MONGO_URI);
 
 const app = express();
-// Allow localhost origins in development (keeps credentials: true).
-// This allows any localhost port (e.g. 5173, 5176) while still disallowing
-// external origins in dev. In production, set a specific origin.
+// Configure allowed origins. By default we explicitly allow your production
+// domains and common local dev origins. You may override via the
+// ALLOWED_ORIGINS environment variable (comma-separated list of origins,
+// e.g. "https://domena.com,https://www.domena.com").
+// Default includes the two Netlify frontends (with and without www) and
+// common Vite/CRA dev hosts used locally.
+const DEFAULT_ALLOWED = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://domena.com',
+  'https://www.domena.com'
+];
+const allowedOrigins = (process.env.ALLOWED_ORIGINS && String(process.env.ALLOWED_ORIGINS).trim())
+  ? String(process.env.ALLOWED_ORIGINS).split(',').map(s => s.trim()).filter(Boolean)
+  : DEFAULT_ALLOWED;
+
+console.debug('CORS allowed origins:', allowedOrigins);
+
+// When running behind a proxy (Render, Heroku, etc.) express should trust
+// the first proxy so secure cookies and correct IPs work. Enable by setting
+// TRUST_PROXY=1 in the environment or automatically in production.
+const enableTrustProxy = process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'production';
+if (enableTrustProxy) {
+  // use numeric value 1 as recommended by Express docs (trust first proxy)
+  app.set('trust proxy', 1);
+  console.debug('express trust proxy set to 1');
+}
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like curl, server-to-server) and allow local dev origins
+    // Allow server-to-server requests or tools without origin
     if (!origin) return callback(null, true);
     try {
       const u = new URL(origin);
-      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
-        return callback(null, true);
-      }
+      const hostname = u.hostname || '';
+      // Allow localhost dev origins
+      if (hostname === 'localhost' || hostname === '127.0.0.1') return callback(null, true);
+      // Allow exact matches against configured allowed origins
+      if (allowedOrigins.includes(origin)) return callback(null, true);
     } catch (e) {
       // ignore parse errors
     }
-    // In production you might want to check process.env.NODE_ENV and only allow specific host
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
+  // expose headers if needed
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'Origin'],
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
 }));
 app.use(express.json());
 // Cookie parser for handling HttpOnly refresh token cookies
