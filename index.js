@@ -19,8 +19,9 @@ const app = express();
 const DEFAULT_ALLOWED = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://domena.com',
-  'https://www.domena.com'
+  // Production frontend origins - keep these in-sync with .env.example
+  'https://prishtinarepaircenter.com',
+  'https://www.prishtinarepaircenter.com'
 ];
 const allowedOrigins = (process.env.ALLOWED_ORIGINS && String(process.env.ALLOWED_ORIGINS).trim())
   ? String(process.env.ALLOWED_ORIGINS).split(',').map(s => s.trim()).filter(Boolean)
