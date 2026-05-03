@@ -70,12 +70,15 @@ router.post('/login', async (req, res) => {
     // Persist refresh token with timeout to avoid indefinite waits
     await withTimeout(addRefreshTokenToUser(user, refreshToken, maxStored), 5000);
 
-    res.cookie('refreshToken', refreshToken, {
+    // Configure cookie options. Only set domain if explicitly provided in env.
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 1000 * 60 * 60 * 24 * 7,
-    });
+    };
+    if (process.env.COOKIE_DOMAIN) cookieOptions.domain = process.env.COOKIE_DOMAIN;
+    res.cookie('refreshToken', refreshToken, cookieOptions);
 
     return res.json({ accessToken });
 
@@ -129,12 +132,14 @@ router.post('/refresh', async (req, res) => {
     await removeRefreshTokenFromUser(user, refreshToken);
     await addRefreshTokenToUser(user, newRefreshToken, 5);
 
-    res.cookie('refreshToken', newRefreshToken, {
+    const cookieOptions2 = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 1000 * 60 * 60 * 24 * 7,
-    });
+    };
+    if (process.env.COOKIE_DOMAIN) cookieOptions2.domain = process.env.COOKIE_DOMAIN;
+    res.cookie('refreshToken', newRefreshToken, cookieOptions2);
 
     return res.json({ accessToken: newAccessToken });
 

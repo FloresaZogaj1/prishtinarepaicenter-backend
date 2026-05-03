@@ -39,7 +39,7 @@ if (enableTrustProxy) {
   console.debug('express trust proxy set to 1');
 }
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     // Allow server-to-server requests or tools without origin
     if (!origin) return callback(null, true);
@@ -59,7 +59,11 @@ app.use(cors({
   // expose headers if needed
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'Origin'],
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
-}));
+};
+
+app.use(cors(corsOptions));
+// Ensure preflight (OPTIONS) requests are handled globally with the same options
+app.options('*', cors(corsOptions));
 app.use(express.json());
 // Cookie parser for handling HttpOnly refresh token cookies
 const cookieParser = require('cookie-parser');

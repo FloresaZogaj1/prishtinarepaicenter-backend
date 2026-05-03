@@ -74,7 +74,46 @@ router.get('/', async (req, res) => {
           return res.json(out);
         }
       } catch (e) { /* ignore */ }
-      return res.json(doc);
+
+      // Merge stored document with DEFAULT_HOME defaults so public site still
+      // shows canonical content when stored fields are empty or placeholders.
+      try {
+        const stored = JSON.parse(JSON.stringify(doc));
+        function isMeaningfulString(s) {
+          if (s === undefined || s === null) return false;
+          if (typeof s !== 'string') return true;
+          const t = s.trim();
+          if (t === '' || t === 'undefined' || t === 'null') return false;
+          if (/^\s*(SMOKE|Smoke)\b/.test(t)) return false;
+          if (/^\s*(Sub text)\s*$/i.test(t)) return false;
+          return true;
+        }
+        function mergeWithDefault(existing, def) {
+          if (existing === undefined || existing === null) return def;
+          if (typeof def === 'string') {
+            return isMeaningfulString(existing) ? existing : def;
+          }
+          if (typeof def !== 'object' || Array.isArray(def)) {
+            // for arrays or primitives other than string, prefer existing when present
+            return (existing !== undefined && existing !== null) ? existing : def;
+          }
+          const out = {};
+          // iterate keys from def to keep canonical ordering
+          for (const k of Object.keys(def)) {
+            out[k] = mergeWithDefault(existing[k], def[k]);
+          }
+          // include any extra keys present in existing
+          for (const k of Object.keys(existing || {})) {
+            if (!(k in out)) out[k] = existing[k];
+          }
+          return out;
+        }
+        const merged = mergeWithDefault(stored, DEFAULT_HOME);
+        return res.json(merged);
+      } catch (e) {
+        // fallback to returning raw doc on any merge error
+        return res.json(doc);
+      }
     }
     // fallback to DEFAULT
     return res.json(DEFAULT_HOME);
