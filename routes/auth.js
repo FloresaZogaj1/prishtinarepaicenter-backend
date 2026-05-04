@@ -150,6 +150,34 @@ router.post('/refresh', async (req, res) => {
 });
 
 /**
+ * GET /me - return basic user info for the currently authenticated access token
+ * This endpoint reads the Authorization: Bearer <token> header, verifies it
+ * and returns minimal user data (id, username, role) so frontend can populate
+ * AuthProvider without relying on token-only heuristics.
+ */
+router.get('/me', async (req, res) => {
+  try {
+    const auth = req.headers && req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) return res.status(404).json({ message: 'Not found' });
+    const token = auth.slice(7).trim();
+    if (!token) return res.status(404).json({ message: 'Not found' });
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (e) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    if (!payload || !payload.id) return res.status(401).json({ message: 'Invalid token' });
+    const user = await User.findById(payload.id).select('username role').lean();
+    if (!user) return res.status(401).json({ message: 'User not found' });
+    return res.json({ id: user._id, username: user.username, role: user.role || 'admin' });
+  } catch (err) {
+    console.error('ME ERROR:', err);
+    return res.status(500).json({ message: 'Failed to load user' });
+  }
+});
+
+/**
  * LOGOUT
  */
 router.post('/logout', async (req, res) => {
