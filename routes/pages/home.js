@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
   try {
     const HomeModel = (() => { try { return require('../../models/HomePageContent'); } catch (e) { return null; } })();
     if (HomeModel) {
-        // Diagnostic: read raw Mongo document before Mongoose casting to inspect legacy services shape
+      // Diagnostic: read raw Mongo document before Mongoose casting to inspect legacy services shape
         // Build the requested rawServicesDebug shape and a diagnostic version marker.
         let __rawServicesDebug = null;
         try {
@@ -91,7 +91,10 @@ router.get('/', async (req, res) => {
         const __diagnosticVersion = 'raw-services-v2';
 
       const doc = await HomeModel.findOne();
-  if (!doc) return res.json(Object.assign({}, DEFAULT_HOME, { __diagnosticVersion, __rawServicesDebug }));
+  if (!doc) {
+    res.set('X-PRC-Diagnostic', __diagnosticVersion);
+    return res.json(Object.assign({}, DEFAULT_HOME, { __diagnosticVersion, __rawServicesDebug }));
+  }
       // Sanitize hero.sub before returning (don't leak placeholder text)
       try {
         const sub = doc.hero && doc.hero.sub;
@@ -101,6 +104,7 @@ router.get('/', async (req, res) => {
           if (out.hero) out.hero.sub = undefined;
           out.__diagnosticVersion = __diagnosticVersion;
           out.__rawServicesDebug = __rawServicesDebug;
+          res.set('X-PRC-Diagnostic', __diagnosticVersion);
           return res.json(out);
         }
       } catch (e) { /* ignore */ }
@@ -170,16 +174,19 @@ router.get('/', async (req, res) => {
         merged.__diagnosticVersion = __diagnosticVersion;
         merged.__rawServicesDebug = __rawServicesDebug;
         // returning merged home content
+        res.set('X-PRC-Diagnostic', __diagnosticVersion);
         return res.json(merged);
       } catch (e) {
         // fallback to returning raw doc on any merge error
         const out = JSON.parse(JSON.stringify(doc || {}));
         out.__diagnosticVersion = __diagnosticVersion;
         out.__rawServicesDebug = __rawServicesDebug;
+        res.set('X-PRC-Diagnostic', __diagnosticVersion);
         return res.json(out);
       }
     }
     // fallback to DEFAULT
+    res.set('X-PRC-Diagnostic', __diagnosticVersion);
     return res.json(Object.assign({}, DEFAULT_HOME, { __diagnosticVersion, __rawServicesDebug }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
