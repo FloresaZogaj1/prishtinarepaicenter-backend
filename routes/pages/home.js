@@ -62,6 +62,27 @@ router.get('/', async (req, res) => {
   try {
     const HomeModel = (() => { try { return require('../../models/HomePageContent'); } catch (e) { return null; } })();
     if (HomeModel) {
+      // Diagnostic: read raw Mongo document before Mongoose casting to inspect legacy services shape
+      try {
+        const rawDoc = await HomeModel.collection.findOne({});
+        const rawServices = rawDoc && rawDoc.services;
+        console.log('[RAW HOME SERVICES] TYPE:', Array.isArray(rawServices) ? 'ARRAY' : (rawServices && typeof rawServices === 'object' ? 'LEGACY_OBJECT' : (rawServices == null ? 'EMPTY' : typeof rawServices)));
+        console.log('[RAW HOME SERVICES] KEYS:', rawServices && !Array.isArray(rawServices) ? Object.keys(rawServices) : []);
+        console.log('[RAW HOME SERVICES] HAS:', {
+          item1: !!(rawServices && rawServices.item1),
+          item2: !!(rawServices && rawServices.item2),
+          item3: !!(rawServices && rawServices.item3),
+          item4: !!(rawServices && rawServices.item4),
+        });
+        try {
+          console.log('[RAW HOME SERVICES] VALUE:', JSON.stringify(rawServices, null, 2));
+        } catch (e) {
+          console.log('[RAW HOME SERVICES] VALUE: <unserializable>');
+        }
+      } catch (diagErr) {
+        console.error('[RAW HOME SERVICES] DIAGNOSTIC ERROR', diagErr && diagErr.message);
+      }
+
       const doc = await HomeModel.findOne();
       if (!doc) return res.json(DEFAULT_HOME);
       // Sanitize hero.sub before returning (don't leak placeholder text)
