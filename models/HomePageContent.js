@@ -9,17 +9,16 @@ const HomePageContentSchema = new mongoose.Schema({
     bullets: { type: [String], default: [] },
     media: { type: String },
     poster: { type: String },
+    removed: { type: Boolean, default: false },
   },
   servicesIntro: {
     title: { type: String },
     subtitle: { type: String },
   },
-  services: {
-    item1: { title: { type: String }, desc: { type: String }, image: { type: String } },
-    item2: { title: { type: String }, desc: { type: String }, image: { type: String } },
-    item3: { title: { type: String }, desc: { type: String }, image: { type: String } },
-    item4: { title: { type: String }, desc: { type: String }, image: { type: String } },
-  },
+  // services is now a dynamic array of cards. Each card has a stable `id` and editable fields.
+  // For backward compatibility we still accept legacy objects with item1..item4 keys in the
+  // routes layer and normalize them to this array shape.
+  services: { type: [{ id: String, title: String, desc: String, image: String, link: String, imageRemoved: { type: Boolean, default: false } }], default: undefined },
   process: {
     kicker: { type: String },
     title: { type: String },
@@ -69,6 +68,9 @@ const HomePageContentSchema = new mongoose.Schema({
     title: { type: String },
     intro: { type: String },
   },
+  // recentWorks: persisted editable gallery. No default so we can distinguish
+  // "never customised" (undefined) from "intentionally empty" ([]).
+  recentWorks: { type: [{ id: String, src: String, alt: String }] },
   footerText: { type: String },
   updatedAt: { type: Date, default: Date.now },
 });

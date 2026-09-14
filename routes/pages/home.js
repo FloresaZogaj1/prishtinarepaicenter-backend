@@ -75,8 +75,8 @@ router.get('/', async (req, res) => {
         }
       } catch (e) { /* ignore */ }
 
-      // Merge stored document with DEFAULT_HOME defaults so public site still
-      // shows canonical content when stored fields are empty or placeholders.
+  // Merge stored document with DEFAULT_HOME defaults so public site still
+  // shows canonical content when stored fields are empty or placeholders.
       try {
         const stored = JSON.parse(JSON.stringify(doc));
         function isMeaningfulString(s) {
@@ -108,7 +108,35 @@ router.get('/', async (req, res) => {
           }
           return out;
         }
+        // Normalize legacy services shape only when stored.services exists and is NOT an array
+        if (stored && stored.services && !Array.isArray(stored.services)) {
+          const svcObj = stored.services || {};
+          const keys = Object.keys(svcObj).filter(k => /^item\d+$/.test(k)).sort();
+          if (keys.length) {
+            const arr = keys.map((k, idx) => {
+              const it = svcObj[k] || {};
+              return {
+                id: it.id || `${k}`,
+                title: it.title || '',
+                desc: it.desc || it.description || '',
+                image: it.image || '',
+                link: it.link || '',
+                imageRemoved: !!it.imageRemoved,
+              };
+            });
+            stored.services = arr;
+          }
+        }
+
         const merged = mergeWithDefault(stored, DEFAULT_HOME);
+        // If stored.services was an array, prefer it exactly (avoid legacy DEFAULT_HOME.services
+        // shape from accidentally turning arrays into objects during merge).
+        try {
+          if (stored && stored.services && Array.isArray(stored.services)) {
+            merged.services = stored.services;
+          }
+        } catch (e) { /* ignore */ }
+  // returning merged home content
         return res.json(merged);
       } catch (e) {
         // fallback to returning raw doc on any merge error
@@ -157,6 +185,10 @@ router.put('/', auth, async (req, res) => {
             out[k] = mergeField(out[k], inc, def);
           } else if (isMeaningfulString(inc) || (inc !== undefined && typeof inc !== 'string')) {
             out[k] = inc;
+          } else if (typeof inc === 'string' && inc === '' && ['media', 'image', 'poster'].includes(k)) {
+            // Allow explicit empty strings for media/image fields so a removal can
+            // be persisted (frontend intentionally sends media: '' when removing)
+            out[k] = inc;
           } // else skip meaningless incoming value and keep existing
         }
         return out;
@@ -191,7 +223,62 @@ router.put('/', auth, async (req, res) => {
     }
     // keep legacy processSteps field as-is for now (but sanitize values)
     doc.processSteps = mergeField(doc.processSteps, incoming.processSteps, DEFAULT_HOME.processSteps);
-    doc.services = mergeField(doc.services, incoming.services, DEFAULT_HOME.services);
+  // Accept incoming.services as either legacy object with item1..item4 or as array
+    // Normalize to array of cards with stable ids before persisting.
+  // normalize incoming.services below
+    if (incoming.services) {
+      if (Array.isArray(incoming.services)) {
+        // ensure each has an id
+        const normalized = incoming.services.map((it, i) => ({
+          id: it.id || String(it._id || it.id || ('svc-' + i)),
+          title: it.title || '',
+          desc: it.desc || it.description || '',
+          image: it.image || '',
+          link: it.link || '',
+          imageRemoved: !!it.imageRemoved,
+        }));
+  doc.services = normalized;
+      } else if (typeof incoming.services === 'object') {
+        // legacy object with keys item1..itemN
+        const svcObj = incoming.services || {};
+        const keys = Object.keys(svcObj).filter(k => /^item\d+$/.test(k)).sort();
+        if (keys.length) {
+          const arr = keys.map((k, idx) => {
+            const it = svcObj[k] || {};
+            return {
+              id: it.id || `${k}`,
+              title: it.title || '',
+              desc: it.desc || it.description || '',
+              image: it.image || '',
+              link: it.link || '',
+              imageRemoved: !!it.imageRemoved,
+            };
+          });
+          doc.services = arr;
+          // normalized legacy object to array
+        } else {
+          // no itemN keys: treat as map of arbitrary keys -> convert preserving keys
+          const keys2 = Object.keys(svcObj);
+          const arr = keys2.map((k, idx) => {
+            const it = svcObj[k] || {};
+            return {
+              id: it.id || k,
+              title: it.title || '',
+              desc: it.desc || it.description || '',
+              image: it.image || '',
+              link: it.link || '',
+              imageRemoved: !!it.imageRemoved,
+            };
+          });
+          doc.services = arr;
+          // normalized map to array
+        }
+      }
+    } else {
+      // no incoming.services: preserve existing doc.services or default
+      doc.services = doc.services || DEFAULT_HOME.services;
+          // no incoming.services: preserve existing
+    }
     doc.whySection = mergeField(doc.whySection, incoming.whySection, DEFAULT_HOME.whySection);
     doc.whyCards = mergeField(doc.whyCards, incoming.whyCards, DEFAULT_HOME.whyCards);
     doc.faqsSection = mergeField(doc.faqsSection, incoming.faqsSection, DEFAULT_HOME.faqsSection);
@@ -199,8 +286,9 @@ router.put('/', auth, async (req, res) => {
     doc.contactSummary = mergeField(doc.contactSummary, incoming.contactSummary, DEFAULT_HOME.contactSummary);
     doc.contactSection = mergeField(doc.contactSection, incoming.contactSection, DEFAULT_HOME.contactSection);
     doc.footerText = isMeaningfulString(incoming.footerText) ? incoming.footerText : (doc.footerText || DEFAULT_HOME.footerText);
-    await doc.save();
-    return res.json(doc);
+    const saved = await doc.save();
+  // saved and returning document
+    return res.json(saved);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
