@@ -63,28 +63,35 @@ router.get('/', async (req, res) => {
     const HomeModel = (() => { try { return require('../../models/HomePageContent'); } catch (e) { return null; } })();
     if (HomeModel) {
         // Diagnostic: read raw Mongo document before Mongoose casting to inspect legacy services shape
-        // Build a small, safe debug object and include it in the API response under __rawServicesDebug
+        // Build the requested rawServicesDebug shape and a diagnostic version marker.
         let __rawServicesDebug = null;
         try {
           const rawDoc = await HomeModel.collection.findOne({});
           const rawServices = rawDoc && rawDoc.services;
           __rawServicesDebug = {
-            type: Array.isArray(rawServices) ? 'ARRAY' : (rawServices && typeof rawServices === 'object' ? 'LEGACY_OBJECT' : (rawServices == null ? 'EMPTY' : typeof rawServices)),
+            type: Array.isArray(rawServices)
+              ? 'ARRAY'
+              : rawServices && typeof rawServices === 'object'
+                ? 'LEGACY_OBJECT'
+                : rawServices == null
+                  ? 'EMPTY'
+                  : typeof rawServices,
             keys: rawServices && !Array.isArray(rawServices) ? Object.keys(rawServices) : [],
             has: {
-              item1: !!(rawServices && rawServices.item1),
-              item2: !!(rawServices && rawServices.item2),
-              item3: !!(rawServices && rawServices.item3),
-              item4: !!(rawServices && rawServices.item4),
+              item1: Boolean(rawServices && rawServices.item1),
+              item2: Boolean(rawServices && rawServices.item2),
+              item3: Boolean(rawServices && rawServices.item3),
+              item4: Boolean(rawServices && rawServices.item4),
             },
+            value: rawServices,
           };
-          try { __rawServicesDebug.value = rawServices; } catch (e) { __rawServicesDebug.value = '<unserializable>'; }
         } catch (diagErr) {
           __rawServicesDebug = { error: diagErr && diagErr.message };
         }
+        const __diagnosticVersion = 'raw-services-v2';
 
       const doc = await HomeModel.findOne();
-  if (!doc) return res.json(Object.assign({}, DEFAULT_HOME, { __rawServicesDebug }));
+  if (!doc) return res.json(Object.assign({}, DEFAULT_HOME, { __diagnosticVersion, __rawServicesDebug }));
       // Sanitize hero.sub before returning (don't leak placeholder text)
       try {
         const sub = doc.hero && doc.hero.sub;
@@ -92,6 +99,7 @@ router.get('/', async (req, res) => {
           // clone to avoid mutating mongoose doc
           const out = JSON.parse(JSON.stringify(doc));
           if (out.hero) out.hero.sub = undefined;
+          out.__diagnosticVersion = __diagnosticVersion;
           out.__rawServicesDebug = __rawServicesDebug;
           return res.json(out);
         }
@@ -159,18 +167,20 @@ router.get('/', async (req, res) => {
           }
         } catch (e) { /* ignore */ }
         // attach diagnostic debug (read-only) so callers can inspect raw DB shape
+        merged.__diagnosticVersion = __diagnosticVersion;
         merged.__rawServicesDebug = __rawServicesDebug;
         // returning merged home content
         return res.json(merged);
       } catch (e) {
         // fallback to returning raw doc on any merge error
         const out = JSON.parse(JSON.stringify(doc || {}));
+        out.__diagnosticVersion = __diagnosticVersion;
         out.__rawServicesDebug = __rawServicesDebug;
         return res.json(out);
       }
     }
     // fallback to DEFAULT
-    return res.json(Object.assign({}, DEFAULT_HOME, { __rawServicesDebug }));
+    return res.json(Object.assign({}, DEFAULT_HOME, { __diagnosticVersion, __rawServicesDebug }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
