@@ -85,6 +85,27 @@ router.get('/', async (req, res) => {
             },
             value: rawServices,
           };
+          // ONE-TIME SAFE RECOVERY
+          // If the raw stored `services` value is an empty legacy object ({}),
+          // perform a single, explicit native collection update to seed a
+          // canonical 4-item array so the public site renders correctly.
+          // This is intentionally strict and idempotent: it only runs when the
+          // raw value is an object with zero keys. Images are set to empty
+          // strings here; frontend will map ids -> local assets.
+          try {
+            const isEmptyLegacyObject = rawServices && typeof rawServices === 'object' && !Array.isArray(rawServices) && Object.keys(rawServices).length === 0;
+            if (isEmptyLegacyObject && rawDoc && rawDoc._id) {
+              const recovery = [
+                { id: 'item1', title: 'Diagnostikë kompjuterike', desc: 'Zbulim i saktë i defekteve në kohë reale me pajisje profesionale.', image: '', link: '', imageRemoved: false },
+                { id: 'item2', title: 'Servisim & mirëmbajtje', desc: 'Servis i rregullt, ndërrim vajrash/filtrash dhe kontroll i përgjithshëm.', image: '', link: '', imageRemoved: false },
+                { id: 'item3', title: 'Limari', desc: 'Riparime aksidentesh, rregullim karrocerie, ngjyrosje profesionale dhe polirim.', image: '', link: '', imageRemoved: false },
+                { id: 'item4', title: 'Detailing', desc: 'Pastrim, mbrojtje dhe rikthim i pamjes premium të veturës suaj.', image: '', link: '', imageRemoved: false },
+              ];
+              await HomeModel.collection.updateOne({ _id: rawDoc._id }, { $set: { services: recovery } });
+            }
+          } catch (recErr) {
+            // swallow: recovery is best-effort and must not break GET
+          }
         } catch (diagErr) {
           __rawServicesDebug = { error: diagErr && diagErr.message };
         }
@@ -92,8 +113,7 @@ router.get('/', async (req, res) => {
 
       const doc = await HomeModel.findOne();
   if (!doc) {
-    res.set('X-PRC-Diagnostic', __diagnosticVersion);
-    return res.json(Object.assign({}, DEFAULT_HOME, { __diagnosticVersion, __rawServicesDebug }));
+    return res.json(Object.assign({}, DEFAULT_HOME));
   }
       // Sanitize hero.sub before returning (don't leak placeholder text)
       try {
@@ -102,9 +122,6 @@ router.get('/', async (req, res) => {
           // clone to avoid mutating mongoose doc
           const out = JSON.parse(JSON.stringify(doc));
           if (out.hero) out.hero.sub = undefined;
-          out.__diagnosticVersion = __diagnosticVersion;
-          out.__rawServicesDebug = __rawServicesDebug;
-          res.set('X-PRC-Diagnostic', __diagnosticVersion);
           return res.json(out);
         }
       } catch (e) { /* ignore */ }
@@ -170,24 +187,16 @@ router.get('/', async (req, res) => {
             merged.services = stored.services;
           }
         } catch (e) { /* ignore */ }
-        // attach diagnostic debug (read-only) so callers can inspect raw DB shape
-        merged.__diagnosticVersion = __diagnosticVersion;
-        merged.__rawServicesDebug = __rawServicesDebug;
         // returning merged home content
-        res.set('X-PRC-Diagnostic', __diagnosticVersion);
         return res.json(merged);
       } catch (e) {
         // fallback to returning raw doc on any merge error
         const out = JSON.parse(JSON.stringify(doc || {}));
-        out.__diagnosticVersion = __diagnosticVersion;
-        out.__rawServicesDebug = __rawServicesDebug;
-        res.set('X-PRC-Diagnostic', __diagnosticVersion);
         return res.json(out);
       }
     }
     // fallback to DEFAULT
-    res.set('X-PRC-Diagnostic', __diagnosticVersion);
-    return res.json(Object.assign({}, DEFAULT_HOME, { __diagnosticVersion, __rawServicesDebug }));
+    return res.json(Object.assign({}, DEFAULT_HOME));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
