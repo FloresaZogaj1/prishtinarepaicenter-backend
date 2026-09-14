@@ -14,8 +14,8 @@ async function createAdmin() {
     if (exists) {
       console.log('Admin ekziston!');
     } else {
-      await User.create({ username, password: hash, role: 'admin' });
-      console.log('Admin u krijua me sukses! Username: admin / Password: admin123');
+  await User.create({ username, password: hash, role: 'admin' });
+  console.log('Admin user created (username: admin). Password has been set securely.');
     }
   } catch (err) {
     console.error('Gabim:', err);

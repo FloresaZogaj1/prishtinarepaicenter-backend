@@ -26,9 +26,8 @@ function withTimeout(promise, ms = 5000) {
  */
 router.post('/login', async (req, res) => {
   try {
-    console.log('LOGIN HIT:', req.body);
-
-    const { username, password } = req.body;
+    // Avoid logging full request body to prevent accidental credential leakage
+    const { username, password } = req.body || {};
 
     if (!username || !password) {
       return res.status(400).json({ message: 'Username & password required' });

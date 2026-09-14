@@ -62,29 +62,29 @@ router.get('/', async (req, res) => {
   try {
     const HomeModel = (() => { try { return require('../../models/HomePageContent'); } catch (e) { return null; } })();
     if (HomeModel) {
-      // Diagnostic: read raw Mongo document before Mongoose casting to inspect legacy services shape
-      try {
-        const rawDoc = await HomeModel.collection.findOne({});
-        const rawServices = rawDoc && rawDoc.services;
-        console.log('[RAW HOME SERVICES] TYPE:', Array.isArray(rawServices) ? 'ARRAY' : (rawServices && typeof rawServices === 'object' ? 'LEGACY_OBJECT' : (rawServices == null ? 'EMPTY' : typeof rawServices)));
-        console.log('[RAW HOME SERVICES] KEYS:', rawServices && !Array.isArray(rawServices) ? Object.keys(rawServices) : []);
-        console.log('[RAW HOME SERVICES] HAS:', {
-          item1: !!(rawServices && rawServices.item1),
-          item2: !!(rawServices && rawServices.item2),
-          item3: !!(rawServices && rawServices.item3),
-          item4: !!(rawServices && rawServices.item4),
-        });
+        // Diagnostic: read raw Mongo document before Mongoose casting to inspect legacy services shape
+        // Build a small, safe debug object and include it in the API response under __rawServicesDebug
+        let __rawServicesDebug = null;
         try {
-          console.log('[RAW HOME SERVICES] VALUE:', JSON.stringify(rawServices, null, 2));
-        } catch (e) {
-          console.log('[RAW HOME SERVICES] VALUE: <unserializable>');
+          const rawDoc = await HomeModel.collection.findOne({});
+          const rawServices = rawDoc && rawDoc.services;
+          __rawServicesDebug = {
+            type: Array.isArray(rawServices) ? 'ARRAY' : (rawServices && typeof rawServices === 'object' ? 'LEGACY_OBJECT' : (rawServices == null ? 'EMPTY' : typeof rawServices)),
+            keys: rawServices && !Array.isArray(rawServices) ? Object.keys(rawServices) : [],
+            has: {
+              item1: !!(rawServices && rawServices.item1),
+              item2: !!(rawServices && rawServices.item2),
+              item3: !!(rawServices && rawServices.item3),
+              item4: !!(rawServices && rawServices.item4),
+            },
+          };
+          try { __rawServicesDebug.value = rawServices; } catch (e) { __rawServicesDebug.value = '<unserializable>'; }
+        } catch (diagErr) {
+          __rawServicesDebug = { error: diagErr && diagErr.message };
         }
-      } catch (diagErr) {
-        console.error('[RAW HOME SERVICES] DIAGNOSTIC ERROR', diagErr && diagErr.message);
-      }
 
       const doc = await HomeModel.findOne();
-      if (!doc) return res.json(DEFAULT_HOME);
+  if (!doc) return res.json(Object.assign({}, DEFAULT_HOME, { __rawServicesDebug }));
       // Sanitize hero.sub before returning (don't leak placeholder text)
       try {
         const sub = doc.hero && doc.hero.sub;
@@ -92,6 +92,7 @@ router.get('/', async (req, res) => {
           // clone to avoid mutating mongoose doc
           const out = JSON.parse(JSON.stringify(doc));
           if (out.hero) out.hero.sub = undefined;
+          out.__rawServicesDebug = __rawServicesDebug;
           return res.json(out);
         }
       } catch (e) { /* ignore */ }
@@ -149,7 +150,7 @@ router.get('/', async (req, res) => {
           }
         }
 
-        const merged = mergeWithDefault(stored, DEFAULT_HOME);
+  const merged = mergeWithDefault(stored, DEFAULT_HOME);
         // If stored.services was an array, prefer it exactly (avoid legacy DEFAULT_HOME.services
         // shape from accidentally turning arrays into objects during merge).
         try {
@@ -157,15 +158,19 @@ router.get('/', async (req, res) => {
             merged.services = stored.services;
           }
         } catch (e) { /* ignore */ }
-  // returning merged home content
+        // attach diagnostic debug (read-only) so callers can inspect raw DB shape
+        merged.__rawServicesDebug = __rawServicesDebug;
+        // returning merged home content
         return res.json(merged);
       } catch (e) {
         // fallback to returning raw doc on any merge error
-        return res.json(doc);
+        const out = JSON.parse(JSON.stringify(doc || {}));
+        out.__rawServicesDebug = __rawServicesDebug;
+        return res.json(out);
       }
     }
     // fallback to DEFAULT
-    return res.json(DEFAULT_HOME);
+    return res.json(Object.assign({}, DEFAULT_HOME, { __rawServicesDebug }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
