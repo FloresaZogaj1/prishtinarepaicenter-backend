@@ -20,19 +20,60 @@ router.put('/', auth, async (req, res) => {
     if (!Model) return res.status(404).json({ error: 'Model not available' });
     let doc = await Model.findOne();
     const incoming = req.body || {};
-    if (!doc) { const toCreate = (incoming && Object.keys(incoming).length) ? incoming : DEFAULT; doc = new Model(toCreate); await doc.save(); return res.status(201).json(doc); }
-    // Replace entire works array when provided (safe authoritative parent)
+
+    // Split works out immediately and never allow raw incoming.works to be
+    // passed to Mongoose (either in constructor or via assignment).
+    const { works: incomingWorks, ...otherFields } = incoming;
+
+    if (!doc) {
+      // Create using only non-works fields. Attach works separately after cleaning.
+      const base = (otherFields && Object.keys(otherFields).length) ? otherFields : DEFAULT;
+      doc = new Model(base);
+
+      // If incoming included works, sanitize and assign before initial save
+      if (Object.prototype.hasOwnProperty.call(incoming, 'works')) {
+        const cleanWorks = Array.isArray(incomingWorks)
+          ? incomingWorks.map((item) => {
+              const clean = { ...item };
+              // UUID/frontend IDs must NEVER enter Mongo `_id`
+              if (clean._id) delete clean._id;
+              return clean;
+            })
+          : [];
+        doc.works = cleanWorks;
+      }
+
+      await doc.save();
+      return res.status(201).json(doc);
+    }
+
+    // Update normal fields (excluding works) defensively
+    Object.keys(otherFields || {}).forEach((key) => {
+      doc[key] = otherFields[key];
+    });
+
+    // Handle works separately and defensively
     if (Object.prototype.hasOwnProperty.call(incoming, 'works')) {
-      const cleanWorks = Array.isArray(incoming.works)
-        ? incoming.works.map((item) => {
+      const cleanWorks = Array.isArray(incomingWorks)
+        ? incomingWorks.map((item) => {
             const clean = { ...item };
-            // Never trust frontend subdocument _id — strip it so Mongoose assigns valid ObjectIds
             if (clean._id) delete clean._id;
             return clean;
           })
         : [];
       doc.works = cleanWorks;
     }
+
+    // Log the cleaned _id values to verify they are Mongoose ObjectIds (or undefined)
+    try {
+      console.log(
+        '[PUNET TONA CLEAN WORK IDS]',
+        Array.isArray(doc.works) ? doc.works.map((x) => String(x._id)) : []
+      );
+    } catch (e) {
+      // swallow logging errors
+    }
+
     await doc.save();
     return res.json(doc);
   } catch (err) {
