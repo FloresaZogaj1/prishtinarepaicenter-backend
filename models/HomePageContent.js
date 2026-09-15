@@ -34,7 +34,7 @@ const HomePageContentSchema = new mongoose.Schema({
     step3: { type: Object, default: {} },
     step4: { type: Object, default: {} },
   },
-  processStepsList: { type: [{ id: String, number: Number, title: String, description: String }], default: undefined },
+  processStepsList: { type: [{ id: String, number: String, title: String, description: String }], default: undefined },
   whyCards: {
     card1: { type: Object, default: {} },
     card2: { type: Object, default: {} },

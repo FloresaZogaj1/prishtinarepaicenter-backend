@@ -336,8 +336,14 @@ router.put('/', auth, async (req, res) => {
         doc.faqsSection = mergeField(doc.faqsSection, incoming.faqsSection, DEFAULT_HOME.faqsSection);
     // Normalize incoming faqs: accept array or legacy faq1..faqN object
     // New additive array: faqsList takes precedence when present
-    if (Array.isArray(incoming.faqsList)) {
-      doc.faqsList = incoming.faqsList.map((it, i) => ({ id: it.id || ('faq-' + i), question: it.question || it.q || '', answer: it.answer || it.a || '' }));
+    if (Object.prototype.hasOwnProperty.call(incoming, 'faqsList')) {
+      // explicit presence check so empty arrays are intentionally persisted
+      if (Array.isArray(incoming.faqsList)) {
+        doc.faqsList = incoming.faqsList.map((it, i) => ({ id: it.id || ('faq-' + i), question: it.question || it.q || '', answer: it.answer || it.a || '' }));
+      } else {
+        // if provided but not an array, store as-is to surface validation elsewhere
+        doc.faqsList = incoming.faqsList;
+      }
     } else if (incoming.faqs) {
       if (Array.isArray(incoming.faqs)) {
         // convert to canonical objects with id, question, answer
@@ -350,32 +356,39 @@ router.put('/', auth, async (req, res) => {
       // no incoming.faqs: preserve existing
       doc.faqs = doc.faqs || DEFAULT_HOME.faqs;
     }
-    // If no incoming.faqsList and doc.faqsList undefined, preserve existing
-    if (!Array.isArray(incoming.faqsList) && !doc.faqsList) {
-      doc.faqsList = doc.faqsList || undefined;
-    }
     // Partners: accept array shape and normalize; preserve existing if not provided
-    if (incoming.partners) {
+    if (Object.prototype.hasOwnProperty.call(incoming, 'partners')) {
       if (Array.isArray(incoming.partners)) {
         doc.partners = incoming.partners.map((p, i) => ({ id: p.id || ('partner-' + i), name: p.name || '', logo: p.logo || '', logoRemoved: !!p.logoRemoved, url: p.url || '' }));
       } else if (typeof incoming.partners === 'object') {
         // if an object provided, attempt to convert map -> array preserving keys
         const keys = Object.keys(incoming.partners || {});
         doc.partners = keys.map((k, i) => { const p = incoming.partners[k] || {}; return { id: p.id || k, name: p.name || '', logo: p.logo || '', logoRemoved: !!p.logoRemoved, url: p.url || '' }; });
+      } else {
+        // persist explicit other values (null, etc.) if provided
+        doc.partners = incoming.partners;
       }
     } else {
       doc.partners = doc.partners || undefined;
     }
     // Accept additive processStepsList (array) if provided
-    if (Array.isArray(incoming.processStepsList)) {
-      doc.processStepsList = incoming.processStepsList.map((it, i) => ({ id: it.id || ('ps-' + i), number: it.number || (i + 1), title: it.title || '', description: it.description || '' }));
+    if (Object.prototype.hasOwnProperty.call(incoming, 'processStepsList')) {
+      if (Array.isArray(incoming.processStepsList)) {
+        doc.processStepsList = incoming.processStepsList.map((it, i) => ({ id: it.id || ('ps-' + i), number: it.number || (i + 1), title: it.title || '', description: it.description || '' }));
+      } else {
+        doc.processStepsList = incoming.processStepsList;
+      }
     } else {
       // preserve existing presence/absence
       doc.processStepsList = doc.processStepsList || undefined;
     }
     // Accept additive whyCardsList (array) if provided
-    if (Array.isArray(incoming.whyCardsList)) {
-      doc.whyCardsList = incoming.whyCardsList.map((it, i) => ({ id: it.id || ('why-' + i), title: it.title || '', description: it.description || '' }));
+    if (Object.prototype.hasOwnProperty.call(incoming, 'whyCardsList')) {
+      if (Array.isArray(incoming.whyCardsList)) {
+        doc.whyCardsList = incoming.whyCardsList.map((it, i) => ({ id: it.id || ('why-' + i), title: it.title || '', description: it.description || '' }));
+      } else {
+        doc.whyCardsList = incoming.whyCardsList;
+      }
     } else {
       doc.whyCardsList = doc.whyCardsList || undefined;
     }
