@@ -29,15 +29,21 @@ router.put('/', auth, async (req, res) => {
     let doc = await Model.findOne();
     if (!doc) { const toCreate = (req.body && Object.keys(req.body).length) ? req.body : DEFAULT; doc = new Model(toCreate); await doc.save(); return res.status(201).json(doc); }
     const incoming = req.body || {};
-    doc.heroTitle = incoming.heroTitle || '';
-    doc.heroDescription = incoming.heroDescription || '';
-    doc.stats = incoming.stats || {};
-  doc.servicesBlockTitle = incoming.servicesBlockTitle || '';
-  doc.servicesBlockItems = incoming.servicesBlockItems || [];
-  doc.recentWorks = incoming.recentWorks || [];
-  doc.heroImage = incoming.heroImage || '';
-    doc.howToTitle = incoming.howToTitle || '';
-    doc.howToDescription = incoming.howToDescription || '';
+    // preserve existing values unless incoming explicitly sets them
+    if (Object.prototype.hasOwnProperty.call(incoming, 'heroTitle')) doc.heroTitle = incoming.heroTitle;
+    if (Object.prototype.hasOwnProperty.call(incoming, 'heroDescription')) doc.heroDescription = incoming.heroDescription;
+    if (Object.prototype.hasOwnProperty.call(incoming, 'stats')) doc.stats = incoming.stats;
+    if (Object.prototype.hasOwnProperty.call(incoming, 'servicesBlockTitle')) doc.servicesBlockTitle = incoming.servicesBlockTitle;
+    // preserve presence semantics for servicesList: allow explicit [] to persist
+    if (Object.prototype.hasOwnProperty.call(incoming, 'servicesList')) {
+      doc.servicesList = Array.isArray(incoming.servicesList) ? incoming.servicesList : [];
+    }
+    // Back-compat: servicesBlockItems remains supported as a simple string array
+    if (Object.prototype.hasOwnProperty.call(incoming, 'servicesBlockItems')) doc.servicesBlockItems = incoming.servicesBlockItems;
+    if (Object.prototype.hasOwnProperty.call(incoming, 'recentWorks')) doc.recentWorks = incoming.recentWorks;
+    if (Object.prototype.hasOwnProperty.call(incoming, 'heroImage')) doc.heroImage = incoming.heroImage;
+    if (Object.prototype.hasOwnProperty.call(incoming, 'howToTitle')) doc.howToTitle = incoming.howToTitle;
+    if (Object.prototype.hasOwnProperty.call(incoming, 'howToDescription')) doc.howToDescription = incoming.howToDescription;
     await doc.save();
     return res.json(doc);
   } catch (err) { res.status(400).json({ error: err.message }); }

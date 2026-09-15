@@ -10,6 +10,10 @@ const AboutPageContentSchema = new mongoose.Schema({
   heroImage: { type: String },
   servicesBlockTitle: { type: String },
   servicesBlockItems: { type: [String], default: [] },
+  // New CMS-managed services list (admin-managed objects).
+  // Stored as an array of objects: { id: String, title: String, iconKey: String }
+  // Default is undefined so absence can be distinguished from an explicit empty array.
+  servicesList: { type: [{ id: String, title: String, iconKey: String }], default: undefined },
   recentWorks: { type: [Object], default: [] }, // fixed set expected in UI
   howToTitle: { type: String },
   howToDescription: { type: String },
