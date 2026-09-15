@@ -45,8 +45,10 @@ exports.getMedia = async (req, res) => {
 // Upload media (multipart/form-data, field name 'file')
 exports.uploadMedia = (req, res) => {
   upload(req, res, async function (err) {
-    // Log request headers for debug (CORS, Authorization, Content-Type)
-    try { console.debug('[media.upload] headers:', { authorization: req.headers.authorization, 'content-type': req.headers['content-type'] }); } catch (e) {}
+    // Log request headers for debug: DO NOT print Authorization header value
+    try {
+      console.debug('[media.upload] headers:', { authorizationPresent: !!req.headers.authorization, 'content-type': req.headers['content-type'] });
+    } catch (e) {}
     // Debug logging to help diagnose upload failures
     console.debug('[media.upload] multer err:', err && err.message);
     try {
@@ -61,7 +63,8 @@ exports.uploadMedia = (req, res) => {
         mimetype: req.file.mimetype,
         size: req.file.size,
       });
-      console.debug('[media.upload] req.body:', req.body);
+  // Avoid logging full request bodies to prevent accidental leakage of secrets
+  try { console.debug('[media.upload] body keys:', Object.keys(req.body || {})); } catch (e) {}
 
       if (!req.file) {
         console.error('[media.upload] no file present on request');

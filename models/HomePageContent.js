@@ -34,12 +34,14 @@ const HomePageContentSchema = new mongoose.Schema({
     step3: { type: Object, default: {} },
     step4: { type: Object, default: {} },
   },
+  processStepsList: { type: [{ id: String, number: Number, title: String, description: String }], default: undefined },
   whyCards: {
     card1: { type: Object, default: {} },
     card2: { type: Object, default: {} },
     card3: { type: Object, default: {} },
     card4: { type: Object, default: {} },
   },
+  whyCardsList: { type: [{ id: String, title: String, description: String }], default: undefined },
   whySection: {
     kicker: { type: String },
     title: { type: String },
@@ -51,6 +53,9 @@ const HomePageContentSchema = new mongoose.Schema({
     faq3: { type: Object, default: {} },
     faq4: { type: Object, default: {} },
   },
+  // New additive arrays: when present (even as empty array) they take precedence
+  // over legacy object-shaped fields. Default undefined so presence is meaningful.
+  faqsList: { type: [{ id: String, question: String, answer: String }], default: undefined },
   faqsSection: {
     kicker: { type: String },
     title: { type: String },
@@ -71,6 +76,9 @@ const HomePageContentSchema = new mongoose.Schema({
   // recentWorks: persisted editable gallery. No default so we can distinguish
   // "never customised" (undefined) from "intentionally empty" ([]).
   recentWorks: { type: [{ id: String, src: String, alt: String }] },
+  // partners: dynamic array of partner objects (admin-managed)
+  // default undefined so we can distinguish "never customised" from empty
+  partners: { type: [{ id: String, name: String, logo: String, logoRemoved: { type: Boolean, default: false }, url: String }], default: undefined },
   footerText: { type: String },
   updatedAt: { type: Date, default: Date.now },
 });

@@ -206,4 +206,36 @@ router.post('/logout', async (req, res) => {
   }
 });
 
+/**
+ * CHANGE PASSWORD (admin-only)
+ * PUT /api/auth/change-password
+ * Body: { currentPassword, newPassword, confirmPassword }
+ */
+router.put('/change-password', async (req, res) => {
+  try {
+    const auth = req.headers && req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
+    const token = auth.slice(7).trim();
+    let payload;
+    try { payload = jwt.verify(token, process.env.JWT_SECRET); } catch (e) { return res.status(401).json({ message: 'Invalid token' }); }
+    if (!payload || !payload.id) return res.status(401).json({ message: 'Invalid token' });
+    const user = await User.findById(payload.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+    if (!currentPassword || !newPassword || !confirmPassword) return res.status(400).json({ message: 'All fields required' });
+    if (newPassword !== confirmPassword) return res.status(400).json({ message: 'New password and confirmation do not match' });
+    if (typeof newPassword !== 'string' || newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters' });
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) return res.status(400).json({ message: 'Current password is incorrect' });
+    const hashed = await bcrypt.hash(newPassword, 10);
+    user.password = hashed;
+    await user.save();
+    return res.json({ message: 'Password changed' });
+  } catch (err) {
+    console.error('CHANGE PASSWORD ERROR:', err);
+    return res.status(500).json({ message: 'Change password failed' });
+  }
+});
+
 module.exports = router;

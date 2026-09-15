@@ -8,6 +8,9 @@ const ContactPageContentSchema = new mongoose.Schema({
   phoneIntl: { type: String },
   email: { type: String },
   maps: { type: String },
+  hours: { type: String },
+  whatsapp: { type: String },
+  social: { type: Object, default: {} },
   updatedAt: { type: Date, default: Date.now },
 });
 

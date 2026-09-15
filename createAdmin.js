@@ -12,10 +12,10 @@ async function createAdmin() {
   try {
     const exists = await User.findOne({ username });
     if (exists) {
-      console.log('Admin ekziston!');
+      console.log('Admin exists, skipping creation');
     } else {
-  await User.create({ username, password: hash, role: 'admin' });
-  console.log('Admin user created (username: admin). Password has been set securely.');
+      await User.create({ username, password: hash, role: 'admin' });
+      console.log('Admin user created (username: admin). Password has been set.');
     }
   } catch (err) {
     console.error('Gabim:', err);

@@ -333,10 +333,60 @@ router.put('/', auth, async (req, res) => {
     }
     doc.whySection = mergeField(doc.whySection, incoming.whySection, DEFAULT_HOME.whySection);
     doc.whyCards = mergeField(doc.whyCards, incoming.whyCards, DEFAULT_HOME.whyCards);
-    doc.faqsSection = mergeField(doc.faqsSection, incoming.faqsSection, DEFAULT_HOME.faqsSection);
-    doc.faqs = mergeField(doc.faqs, incoming.faqs, DEFAULT_HOME.faqs);
+        doc.faqsSection = mergeField(doc.faqsSection, incoming.faqsSection, DEFAULT_HOME.faqsSection);
+    // Normalize incoming faqs: accept array or legacy faq1..faqN object
+    // New additive array: faqsList takes precedence when present
+    if (Array.isArray(incoming.faqsList)) {
+      doc.faqsList = incoming.faqsList.map((it, i) => ({ id: it.id || ('faq-' + i), question: it.question || it.q || '', answer: it.answer || it.a || '' }));
+    } else if (incoming.faqs) {
+      if (Array.isArray(incoming.faqs)) {
+        // convert to canonical objects with id, question, answer
+        doc.faqs = incoming.faqs.map((it, i) => ({ id: it.id || ('faq-' + i), question: it.question || it.q || '', answer: it.answer || it.a || '' }));
+      } else if (typeof incoming.faqs === 'object') {
+        // preserve existing mergeField behavior for objects
+        doc.faqs = mergeField(doc.faqs, incoming.faqs, DEFAULT_HOME.faqs);
+      }
+    } else {
+      // no incoming.faqs: preserve existing
+      doc.faqs = doc.faqs || DEFAULT_HOME.faqs;
+    }
+    // If no incoming.faqsList and doc.faqsList undefined, preserve existing
+    if (!Array.isArray(incoming.faqsList) && !doc.faqsList) {
+      doc.faqsList = doc.faqsList || undefined;
+    }
+    // Partners: accept array shape and normalize; preserve existing if not provided
+    if (incoming.partners) {
+      if (Array.isArray(incoming.partners)) {
+        doc.partners = incoming.partners.map((p, i) => ({ id: p.id || ('partner-' + i), name: p.name || '', logo: p.logo || '', logoRemoved: !!p.logoRemoved, url: p.url || '' }));
+      } else if (typeof incoming.partners === 'object') {
+        // if an object provided, attempt to convert map -> array preserving keys
+        const keys = Object.keys(incoming.partners || {});
+        doc.partners = keys.map((k, i) => { const p = incoming.partners[k] || {}; return { id: p.id || k, name: p.name || '', logo: p.logo || '', logoRemoved: !!p.logoRemoved, url: p.url || '' }; });
+      }
+    } else {
+      doc.partners = doc.partners || undefined;
+    }
+    // Accept additive processStepsList (array) if provided
+    if (Array.isArray(incoming.processStepsList)) {
+      doc.processStepsList = incoming.processStepsList.map((it, i) => ({ id: it.id || ('ps-' + i), number: it.number || (i + 1), title: it.title || '', description: it.description || '' }));
+    } else {
+      // preserve existing presence/absence
+      doc.processStepsList = doc.processStepsList || undefined;
+    }
+    // Accept additive whyCardsList (array) if provided
+    if (Array.isArray(incoming.whyCardsList)) {
+      doc.whyCardsList = incoming.whyCardsList.map((it, i) => ({ id: it.id || ('why-' + i), title: it.title || '', description: it.description || '' }));
+    } else {
+      doc.whyCardsList = doc.whyCardsList || undefined;
+    }
     doc.contactSummary = mergeField(doc.contactSummary, incoming.contactSummary, DEFAULT_HOME.contactSummary);
     doc.contactSection = mergeField(doc.contactSection, incoming.contactSection, DEFAULT_HOME.contactSection);
+    // Persist contact additive fields if provided
+    if (incoming.contactSummary) {
+      if (incoming.contactSummary.hours !== undefined) doc.contactSummary.hours = incoming.contactSummary.hours;
+      if (incoming.contactSummary.whatsapp !== undefined) doc.contactSummary.whatsapp = incoming.contactSummary.whatsapp;
+      if (incoming.contactSummary.social !== undefined) doc.contactSummary.social = incoming.contactSummary.social;
+    }
     doc.footerText = isMeaningfulString(incoming.footerText) ? incoming.footerText : (doc.footerText || DEFAULT_HOME.footerText);
     const saved = await doc.save();
   // saved and returning document

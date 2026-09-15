@@ -27,13 +27,19 @@ router.put('/', auth, async (req, res) => {
     let doc = await Model.findOne();
     if (!doc) { const toCreate = (req.body && Object.keys(req.body).length) ? req.body : DEFAULT; doc = new Model(toCreate); await doc.save(); return res.status(201).json(doc); }
     const incoming = req.body || {};
-    doc.title = incoming.title || '';
-    doc.subtitle = incoming.subtitle || '';
-    doc.address = incoming.address || '';
-    doc.phoneDisplay = incoming.phoneDisplay || '';
-    doc.phoneIntl = incoming.phoneIntl || '';
-    doc.email = incoming.email || '';
-    doc.maps = incoming.maps || '';
+    // Only overwrite fields that the client explicitly provided (presence semantics)
+    const has = Object.prototype.hasOwnProperty.call.bind(Object.prototype.hasOwnProperty);
+    if (has(incoming, 'title')) doc.title = incoming.title;
+    if (has(incoming, 'subtitle')) doc.subtitle = incoming.subtitle;
+    if (has(incoming, 'address')) doc.address = incoming.address;
+    if (has(incoming, 'phoneDisplay')) doc.phoneDisplay = incoming.phoneDisplay;
+    if (has(incoming, 'phoneIntl')) doc.phoneIntl = incoming.phoneIntl;
+    if (has(incoming, 'email')) doc.email = incoming.email;
+    if (has(incoming, 'maps')) doc.maps = incoming.maps;
+    // Persist additional admin fields when provided (presence-based)
+    if (has(incoming, 'hours')) doc.hours = incoming.hours;
+    if (has(incoming, 'whatsapp')) doc.whatsapp = incoming.whatsapp;
+    if (has(incoming, 'social')) doc.social = incoming.social;
     await doc.save();
     return res.json(doc);
   } catch (err) { res.status(400).json({ error: err.message }); }
