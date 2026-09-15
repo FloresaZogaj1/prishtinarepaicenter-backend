@@ -1,13 +1,18 @@
 const mongoose = require('mongoose');
 
-const WorkItem = {
-  src: { type: String },
-  title: { type: String },
-  thumbnail: { type: String },
-};
+// Define a proper subdocument schema for works where _id is explicitly a String
+const WorkItemSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    src: { type: String },
+    title: { type: String },
+    thumbnail: { type: String },
+  },
+  { _id: false }
+);
 
 const PunetTonaPageContentSchema = new mongoose.Schema({
-  works: { type: [WorkItem], default: [] },
+  works: { type: [WorkItemSchema], default: [] },
   updatedAt: { type: Date, default: Date.now },
 });
 
