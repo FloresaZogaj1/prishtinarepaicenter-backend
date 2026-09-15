@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../../middleware/auth');
+const { randomUUID } = require('crypto');
 
 const DEFAULT = {
   works: [],
@@ -33,12 +34,10 @@ router.put('/', auth, async (req, res) => {
       // If incoming included works, sanitize and assign before initial save
       if (Object.prototype.hasOwnProperty.call(incoming, 'works')) {
         const cleanWorks = Array.isArray(incomingWorks)
-          ? incomingWorks.map((item) => {
-              const clean = { ...item };
-              // UUID/frontend IDs must NEVER enter Mongo `_id`
-              if (clean._id) delete clean._id;
-              return clean;
-            })
+          ? incomingWorks.map((item) => ({
+              ...item,
+              _id: item?._id ? String(item._id) : randomUUID(),
+            }))
           : [];
         doc.works = cleanWorks;
       }
@@ -55,21 +54,17 @@ router.put('/', auth, async (req, res) => {
     // Handle works separately and defensively
     if (Object.prototype.hasOwnProperty.call(incoming, 'works')) {
       const cleanWorks = Array.isArray(incomingWorks)
-        ? incomingWorks.map((item) => {
-            const clean = { ...item };
-            if (clean._id) delete clean._id;
-            return clean;
-          })
+        ? incomingWorks.map((item) => ({
+            ...item,
+            _id: item?._id ? String(item._id) : randomUUID(),
+          }))
         : [];
       doc.works = cleanWorks;
     }
 
     // Log the cleaned _id values to verify they are Mongoose ObjectIds (or undefined)
     try {
-      console.log(
-        '[PUNET TONA CLEAN WORK IDS]',
-        Array.isArray(doc.works) ? doc.works.map((x) => String(x._id)) : []
-      );
+      console.log('[PUNET TONA CLEAN WORK IDS]', Array.isArray(doc.works) ? doc.works.map((x) => String(x._id)) : []);
     } catch (e) {
       // swallow logging errors
     }
