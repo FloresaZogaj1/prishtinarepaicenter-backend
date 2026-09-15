@@ -18,9 +18,10 @@ const storage = multer.diskStorage({
   },
 });
 
+// Allow up to 50MB to support video uploads; images remain acceptable as before.
 const upload = multer({
   storage,
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req, file, cb) => {
     if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
       return cb(new Error('Only image/video files are allowed'));
