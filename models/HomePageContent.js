@@ -79,6 +79,9 @@ const HomePageContentSchema = new mongoose.Schema({
   // partners: dynamic array of partner objects (admin-managed)
   // default undefined so we can distinguish "never customised" from empty
   partners: { type: [{ id: String, name: String, logo: String, logoRemoved: { type: Boolean, default: false }, url: String }], default: undefined },
+  // insurancePartners: separate array for insurance partners (admin-managed)
+  // kept independent from `partners` and default undefined so presence is meaningful
+  insurancePartners: { type: [{ id: String, name: String, logo: String, logoRemoved: { type: Boolean, default: false }, url: String }], default: undefined },
   footerText: { type: String },
   updatedAt: { type: Date, default: Date.now },
 });

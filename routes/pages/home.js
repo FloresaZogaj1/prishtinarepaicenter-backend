@@ -371,6 +371,19 @@ router.put('/', auth, async (req, res) => {
     } else {
       doc.partners = doc.partners || undefined;
     }
+    // Insurance partners: separate array managed independently from partners
+    if (Object.prototype.hasOwnProperty.call(incoming, 'insurancePartners')) {
+      if (Array.isArray(incoming.insurancePartners)) {
+        doc.insurancePartners = incoming.insurancePartners.map((p, i) => ({ id: p.id || ('insurance-' + i), name: p.name || '', logo: p.logo || '', logoRemoved: !!p.logoRemoved, url: p.url || '' }));
+      } else if (typeof incoming.insurancePartners === 'object') {
+        const keys = Object.keys(incoming.insurancePartners || {});
+        doc.insurancePartners = keys.map((k, i) => { const p = incoming.insurancePartners[k] || {}; return { id: p.id || k, name: p.name || '', logo: p.logo || '', logoRemoved: !!p.logoRemoved, url: p.url || '' }; });
+      } else {
+        doc.insurancePartners = incoming.insurancePartners;
+      }
+    } else {
+      doc.insurancePartners = doc.insurancePartners || undefined;
+    }
     // Accept additive processStepsList (array) if provided
     if (Object.prototype.hasOwnProperty.call(incoming, 'processStepsList')) {
       if (Array.isArray(incoming.processStepsList)) {
