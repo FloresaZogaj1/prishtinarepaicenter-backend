@@ -4,8 +4,11 @@ const mongoose = require('mongoose');
 const WorkItemSchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
+    type: { type: String, enum: ['image', 'video'], default: 'image' },
     src: { type: String },
+    poster: { type: String },
     title: { type: String },
+    description: { type: String },
     thumbnail: { type: String },
   },
   { _id: false }

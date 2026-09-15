@@ -37,6 +37,7 @@ router.put('/', auth, async (req, res) => {
           ? incomingWorks.map((item) => ({
               ...item,
               _id: item?._id ? String(item._id) : randomUUID(),
+              type: item?.type === 'video' ? 'video' : 'image',
             }))
           : [];
         doc.works = cleanWorks;
@@ -57,6 +58,7 @@ router.put('/', auth, async (req, res) => {
         ? incomingWorks.map((item) => ({
             ...item,
             _id: item?._id ? String(item._id) : randomUUID(),
+            type: item?.type === 'video' ? 'video' : 'image',
           }))
         : [];
       doc.works = cleanWorks;
