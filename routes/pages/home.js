@@ -331,6 +331,18 @@ router.put('/', auth, async (req, res) => {
       doc.services = doc.services || DEFAULT_HOME.services;
           // no incoming.services: preserve existing
     }
+  // Persist recentWorks if provided (admin-managed gallery for Home page)
+  if (Object.prototype.hasOwnProperty.call(incoming, 'recentWorks')) {
+    // Ensure we persist an array of objects with id, src, alt
+    if (Array.isArray(incoming.recentWorks)) {
+    doc.recentWorks = incoming.recentWorks.map((it, i) => ({ id: it.id || it._id || `r-${i}`, src: it.src || it.image || it.img || '', alt: it.alt || '' }));
+    } else {
+    // if provided but not an array, ignore to avoid corrupting stored shape
+    }
+  } else {
+    // preserve existing recentWorks presence/absence
+    doc.recentWorks = doc.recentWorks || undefined;
+  }
     doc.whySection = mergeField(doc.whySection, incoming.whySection, DEFAULT_HOME.whySection);
     doc.whyCards = mergeField(doc.whyCards, incoming.whyCards, DEFAULT_HOME.whyCards);
         doc.faqsSection = mergeField(doc.faqsSection, incoming.faqsSection, DEFAULT_HOME.faqsSection);
