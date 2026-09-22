@@ -85,7 +85,7 @@ exports.uploadMedia = (req, res) => {
         if (cloudinaryEnabled) {
           try {
             const clFolder = `prishtina-repair-center/${folder}`;
-            const result = await cloudinary.uploader.upload(path.join(uploadsDir, req.file.filename), { folder: clFolder });
+            const result = await cloudinary.uploader.upload(path.join(uploadsDir, req.file.filename), { folder: clFolder, resource_type: 'auto' });
             if (result && result.secure_url) {
               fileUrl = result.secure_url;
               cloudinaryPublicId = result.public_id;
