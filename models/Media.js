@@ -7,6 +7,7 @@ const MediaSchema = new mongoose.Schema({
   folder: { type: String },
   tags: [{ type: String }],
   altText: { type: String },
+  cloudinaryPublicId: { type: String },
   uploadedBy: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

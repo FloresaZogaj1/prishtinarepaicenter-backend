@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const Media = require('../models/Media');
+const { cloudinary, enabled: cloudinaryEnabled } = require('../cloudinaryConfig');
 
 // Centralized uploads directory (configurable via UPLOADS_DIR env)
 const { uploadsDir } = require('../uploadsConfig');
@@ -72,19 +73,58 @@ exports.uploadMedia = (req, res) => {
       }
 
         const folder = req.body.folder || req.query.folder || 'general';
-      const altText = req.body.altText || '';
-      const fileUrl = `/uploads/${req.file.filename}`;
+        const altText = req.body.altText || '';
 
-      const m = new Media({
-        fileName: req.file.filename,
-        fileType: req.file.mimetype,
-        fileUrl,
-        folder,
-        altText,
-        uploadedBy: req.user && req.user.id ? req.user.id : undefined,
-      });
-      await m.save();
-      res.status(201).json(m);
+        // Default to local file URL
+        let fileUrl = `/uploads/${req.file.filename}`;
+        let cloudinaryPublicId = undefined;
+
+        // If Cloudinary is configured, upload to Cloudinary and remove local temp file.
+        // On Cloudinary upload failure when enabled, do NOT fall back to local storage
+        // (production safety): remove temp file and return HTTP 500.
+        if (cloudinaryEnabled) {
+          try {
+            const clFolder = `prishtina-repair-center/${folder}`;
+            const result = await cloudinary.uploader.upload(path.join(uploadsDir, req.file.filename), { folder: clFolder });
+            if (result && result.secure_url) {
+              fileUrl = result.secure_url;
+              cloudinaryPublicId = result.public_id;
+            } else {
+              // Unexpected: treat as failure
+              throw new Error('Cloudinary returned no secure_url');
+            }
+          } catch (e) {
+            console.error('[media.upload] Cloudinary upload failed:', e && e.message);
+            // Remove temporary local file (best-effort)
+            try {
+              const abs = path.join(uploadsDir, req.file.filename);
+              if (fs.existsSync(abs)) fs.unlinkSync(abs);
+            } catch (ux) {
+              console.error('[media.upload] failed to remove temp file after cloudinary failure:', ux && ux.message);
+            }
+            // Return error to caller; do NOT create a Media record pointing at ephemeral local storage
+            return res.status(500).json({ error: 'Cloudinary upload failed' });
+          }
+          // Remove temporary local file after successful Cloudinary upload (best-effort)
+          try {
+            const abs2 = path.join(uploadsDir, req.file.filename);
+            if (fs.existsSync(abs2)) fs.unlinkSync(abs2);
+          } catch (e) {
+            console.error('[media.upload] failed to remove temp file after cloudinary success:', e && e.message);
+          }
+        }
+
+        const m = new Media({
+          fileName: req.file.filename,
+          fileType: req.file.mimetype,
+          fileUrl,
+          folder,
+          altText,
+          uploadedBy: req.user && req.user.id ? req.user.id : undefined,
+          cloudinaryPublicId,
+        });
+        await m.save();
+        res.status(201).json(m);
     } catch (e) {
       console.error('[media.upload] unexpected error:', e);
       res.status(500).json({ error: e.message });
@@ -115,13 +155,23 @@ exports.deleteMedia = async (req, res) => {
   try {
     const media = await Media.findById(req.params.id);
     if (!media) return res.status(404).json({ error: 'Media not found' });
-    // unlink file
-    if (media.fileUrl) {
-  // Compute absolute path using configured uploadsDir but keep public URL as /uploads/<file>
-  const abs = path.join(uploadsDir, path.basename(media.fileUrl || ''));
-      if (fs.existsSync(abs)) {
-        try { fs.unlinkSync(abs); } catch (e) { /* ignore unlink errors */ }
+    // If media has a Cloudinary public id and Cloudinary configured, delete it first
+    if (media.cloudinaryPublicId && cloudinaryEnabled) {
+      try {
+        await cloudinary.uploader.destroy(media.cloudinaryPublicId);
+      } catch (e) {
+        console.error('[media.delete] cloudinary destroy failed:', e && e.message);
+        // continue to attempt local unlink / DB deletion
       }
+    }
+    // unlink local file if present (fallback for legacy /uploads files)
+    if (media.fileUrl) {
+      try {
+        const abs = path.join(uploadsDir, path.basename(media.fileUrl || ''));
+        if (fs.existsSync(abs)) {
+          try { fs.unlinkSync(abs); } catch (e) { /* ignore unlink errors */ }
+        }
+      } catch (e) { /* ignore */ }
     }
     await Media.deleteOne({ _id: req.params.id });
     res.json({ success: true });
