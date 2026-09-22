@@ -27,17 +27,23 @@ router.put('/', auth, async (req, res) => {
     if (!Model) return res.status(404).json({ error: 'Model not available' });
     let doc = await Model.findOne();
     if (!doc) { const toCreate = (req.body && Object.keys(req.body).length) ? req.body : DEFAULT; doc = new Model(toCreate); await doc.save(); return res.status(201).json(doc); }
-    const incoming = req.body || {};
-    doc.heroTitle = incoming.heroTitle || '';
-    doc.heroIntro = incoming.heroIntro || '';
-    doc.heroImage = incoming.heroImage || '';
-    doc.featuresIntro = incoming.featuresIntro || '';
-    doc.processImage = incoming.processImage || '';
-    doc.processIntro = incoming.processIntro || '';
-    doc.horizontalTitle = incoming.horizontalTitle || '';
-    doc.horizontalDesc = incoming.horizontalDesc || '';
-    await doc.save();
-    return res.json(doc);
+  const incoming = req.body || {};
+  // Partial assignment: only overwrite fields that are provided (including empty strings)
+  if (Object.prototype.hasOwnProperty.call(incoming, 'heroTitle')) doc.heroTitle = incoming.heroTitle;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'heroIntro')) doc.heroIntro = incoming.heroIntro;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'heroImage')) doc.heroImage = incoming.heroImage;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'heroImageRemoved')) doc.heroImageRemoved = incoming.heroImageRemoved;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'featuresIntro')) doc.featuresIntro = incoming.featuresIntro;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'features')) doc.features = incoming.features;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'processImage')) doc.processImage = incoming.processImage;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'processImageRemoved')) doc.processImageRemoved = incoming.processImageRemoved;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'processIntro')) doc.processIntro = incoming.processIntro;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'horizontalTitle')) doc.horizontalTitle = incoming.horizontalTitle;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'horizontalDesc')) doc.horizontalDesc = incoming.horizontalDesc;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'processSteps')) doc.processSteps = incoming.processSteps;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'video')) doc.video = incoming.video;
+  await doc.save();
+  return res.json(doc);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
