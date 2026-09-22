@@ -3,9 +3,8 @@ const fs = require('fs');
 const multer = require('multer');
 const Media = require('../models/Media');
 
-// Prepare uploads directory under project_root/public/uploads
-const uploadsDir = path.join(__dirname, '..', '..', 'public', 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+// Centralized uploads directory (configurable via UPLOADS_DIR env)
+const { uploadsDir } = require('../uploadsConfig');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -72,7 +71,7 @@ exports.uploadMedia = (req, res) => {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      const folder = req.body.folder || req.query.folder || 'general';
+        const folder = req.body.folder || req.query.folder || 'general';
       const altText = req.body.altText || '';
       const fileUrl = `/uploads/${req.file.filename}`;
 
@@ -118,7 +117,8 @@ exports.deleteMedia = async (req, res) => {
     if (!media) return res.status(404).json({ error: 'Media not found' });
     // unlink file
     if (media.fileUrl) {
-      const abs = path.join(__dirname, '..', '..', 'public', media.fileUrl);
+  // Compute absolute path using configured uploadsDir but keep public URL as /uploads/<file>
+  const abs = path.join(uploadsDir, path.basename(media.fileUrl || ''));
       if (fs.existsSync(abs)) {
         try { fs.unlinkSync(abs); } catch (e) { /* ignore unlink errors */ }
       }

@@ -69,8 +69,10 @@ app.use(express.json());
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
-// Serve uploaded media files (public/uploads)
-app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
+// Serve uploaded media files (public URL: /uploads/*)
+// Use centralized uploadsDir so hosting can mount persistent storage via UPLOADS_DIR
+const { uploadsDir } = require('./uploadsConfig');
+app.use('/uploads', express.static(uploadsDir));
 
 // Connect to MongoDB using a single URI (no fallback/retry).
 // Returns the actual URI used (string) on success, or throws on failure.
