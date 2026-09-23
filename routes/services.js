@@ -29,11 +29,20 @@ router.get('/', async (req, res, next) => {
 });
 
 
-// Update
-router.put('/:id', auth, serviceValidation, validate, async (req, res, next) => {
+// Update - apply partial assignment to avoid overwriting unspecified fields
+router.put('/:id', auth, async (req, res, next) => {
   try {
-    const service = await Service.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const service = await Service.findById(req.params.id);
     if (!service) return res.status(404).json({ error: 'Shërbimi nuk u gjet!' });
+
+    // Only copy fields that are present in the request body (including empty strings)
+    Object.keys(req.body).forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        service[key] = req.body[key];
+      }
+    });
+
+    await service.save();
     res.json(service);
   } catch (err) {
     next(err);

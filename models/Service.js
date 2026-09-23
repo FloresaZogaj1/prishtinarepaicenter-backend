@@ -10,7 +10,17 @@ const ServiceSchema = new mongoose.Schema({
   startingPrice: { type: Number },
   durationMinutes: { type: Number },
   coverImage: { type: String },
+  coverImageRemoved: { type: Boolean, default: false },
   icon: { type: String },
+  processImage: { type: String },
+  processImageRemoved: { type: Boolean, default: false },
+  video: {
+    src: { type: String },
+    poster: { type: String },
+    removed: { type: Boolean, default: false }
+  },
+  features: { type: Array },
+  processSteps: { type: Array },
   ctaText: { type: String },
   featured: { type: Boolean, default: false },
   active: { type: Boolean, default: true },
